@@ -1,0 +1,1781 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <title>寶可夢圖鑑編號拍照辨識器 | Pokémon Pokédex Number Scanner</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts: Inter, Noto Sans TC, JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@600;700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Inter"', '"Noto Sans TC"', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            pokedex: {
+              red: '#DC2626',
+              redBright: '#EF4444',
+              redDark: '#991B1B',
+              yellow: '#FACC15',
+              surface: '#F8FAFC',
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    /* 全局基礎字型與經典圖鑑工作台淺灰背景 */
+    body {
+      font-family: 'Inter', 'Noto Sans TC', sans-serif;
+      background-color: #F8FAFC;
+      background-image:
+        radial-gradient(circle at 10% 6%, rgba(220, 38, 38, 0.06) 0%, transparent 32%),
+        radial-gradient(circle at 90% 10%, rgba(250, 204, 21, 0.09) 0%, transparent 34%),
+        radial-gradient(#CBD5E1 0.85px, transparent 0.85px);
+      background-size: 100% 100%, 100% 100%, 24px 24px;
+    }
+
+    /* 圖鑑主藍色掃描鏡頭呼吸光暈 */
+    @keyframes lensPulse {
+      0%, 100% {
+        box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.95), 0 0 14px rgba(56, 189, 248, 0.85);
+      }
+      50% {
+        box-shadow: 0 0 0 3px rgba(255, 255, 255, 1), 0 0 24px rgba(14, 165, 233, 1);
+      }
+    }
+
+    .pokedex-lens {
+      animation: lensPulse 2.6s ease-in-out infinite;
+    }
+
+    /* 精靈球載入旋轉動畫 */
+    @keyframes pokeballSpin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .animate-pokeball {
+      animation: pokeballSpin 1.1s linear infinite;
+    }
+
+    /* 淺色柔和捲軸樣式 */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #E2E8F0;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #94A3B8;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #64748B;
+    }
+  </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col overflow-x-hidden selection:bg-[#DC2626] selection:text-white">
+
+  <!-- =========================================================================
+       頂部經典寶可夢圖鑑（Pokédex）紅色導覽列
+  ========================================================================== -->
+  <header class="sticky top-0 z-40 bg-gradient-to-r from-[#DC2626] via-[#EF4444] to-[#DC2626] text-white shadow-lg shadow-red-900/15 border-b-4 border-[#991B1B]">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-[72px] flex items-center justify-between gap-3">
+      
+      <!-- 左側：圖鑑鏡頭指示燈組 + 應用程式主副標題 -->
+      <div class="flex items-center gap-3 sm:gap-4 min-w-0">
+        <div class="flex items-start gap-2 flex-shrink-0">
+          <!-- 大型藍色掃描鏡頭 -->
+          <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-to-br from-sky-300 via-sky-500 to-blue-700 pokedex-lens relative flex items-center justify-center">
+            <span class="w-3 h-3 rounded-full bg-white/85 absolute top-1.5 left-2 blur-[0.4px]"></span>
+          </div>
+          <!-- 紅 / 黃 / 綠 三顆狀態燈 -->
+          <div class="flex items-center gap-1.5 pt-0.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-red-200 ring-1 ring-red-950/40 shadow-inner"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-[#FACC15] ring-1 ring-red-950/40 shadow-inner"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 ring-1 ring-red-950/40 shadow-inner"></span>
+          </div>
+        </div>
+
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <h1 class="text-base sm:text-xl font-black tracking-tight text-white truncate">
+              寶可夢圖鑑編號拍照辨識器
+            </h1>
+            <span class="hidden md:inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-mono font-extrabold bg-slate-950/35 text-[#FACC15] border border-[#FACC15]/40">
+              POKÉDEX AI
+            </span>
+          </div>
+          <p class="text-[11px] sm:text-xs text-red-50/95 truncate">
+            Pokémon Pokédex Number Scanner · 精準辨識全國圖鑑編號（#0001 – #1025）
+          </p>
+        </div>
+      </div>
+
+      <!-- 右側：快速跳轉收藏紀錄統計按鈕 -->
+      <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+        <a href="#history-section"
+          class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-950/25 hover:bg-slate-950/40 active:scale-95 border border-white/25 text-xs sm:text-sm font-bold text-white transition">
+          <span>圖鑑收藏庫</span>
+          <span id="header-count-badge" class="px-2 py-0.5 rounded-lg bg-[#FACC15] text-slate-950 font-mono font-black text-xs shadow-2xs">
+            0
+          </span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- =========================================================================
+       主工作台容器（行動裝置優先響應式排版）
+  ========================================================================== -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-5 sm:py-7 space-y-6">
+
+    <!-- 核心功能定位提示列 -->
+    <div class="bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-xs flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm">
+      <div class="flex items-center gap-2.5 text-slate-700">
+        <span class="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-[#FACC15] text-slate-950 font-black flex-shrink-0 shadow-2xs">
+          !
+        </span>
+        <span>
+          本工具專用於讀取寶可夢的<strong class="text-[#DC2626] font-black">全國圖鑑編號（例如 #0025 皮卡丘）</strong>，而非卡牌左下角或右下角的<span class="line-through text-slate-400">擴充包系列卡號（例如 025/198）</span>。
+        </span>
+      </div>
+      <span class="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
+        支援朱紫 / 劍盾 / 日月 / 經典系列及 ex / V / GX / 全圖卡
+      </span>
+    </div>
+
+    <!-- 上半部雙欄工作區：左欄拍照匯入 + 右欄 Pokédex 辨識結果 -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+      <!-- =====================================================================
+           左側欄（7欄）：純拍照與多管道圖片匯入 + 卡面位置 SVG 示意圖
+      ====================================================================== -->
+      <section class="lg:col-span-7 bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 shadow-sm space-y-4">
+        
+        <!-- 面板標題 -->
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3.5">
+          <div class="flex items-center gap-2.5">
+            <span class="w-3 h-3 rounded-full bg-[#DC2626]"></span>
+            <h2 class="text-base sm:text-lg font-black text-slate-800">卡牌拍照與圖片匯入</h2>
+          </div>
+          <span class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-[11px] font-semibold text-slate-600">
+            支援拖曳圖片 或 <kbd class="px-1.5 py-0.5 rounded bg-white border border-slate-300 text-slate-800 font-mono text-[10px]">Ctrl+V</kbd> 貼上截圖
+          </span>
+        </div>
+
+        <!-- 隱藏檔案輸入框：原生高畫質相機拍照 & 相簿選取 -->
+        <input id="camera-capture-input" type="file" accept="image/*" capture="environment" class="hidden" onchange="handleImageInput(event)" />
+        <input id="gallery-file-input" type="file" accept="image/*" class="hidden" onchange="handleImageInput(event)" />
+
+        <!-- 拖曳感應區 -->
+        <div id="drop-zone"
+          class="relative w-full rounded-2xl border-2 border-dashed border-slate-300 hover:border-[#DC2626] bg-[#F8FAFC] transition-all p-4 sm:p-6">
+
+          <!-- 狀態 A：未載入照片時的操作按鈕與卡面結構 SVG 示意圖 -->
+          <div id="upload-empty-state" class="flex flex-col items-center text-center space-y-5">
+            
+            <!-- 拍照與相簿操作按鈕區 -->
+            <div class="w-full max-w-md space-y-3 pt-1">
+              <!-- 主操作按鈕：呼叫手機原生高畫質相機 -->
+              <button type="button" onclick="document.getElementById('camera-capture-input').click()"
+                class="w-full flex items-center justify-center gap-3 px-6 py-4 rounded-2xl bg-[#DC2626] hover:bg-[#B91C1C] active:scale-[0.98] text-white text-base sm:text-lg font-black shadow-lg shadow-red-600/25 border-b-4 border-[#991B1B] transition">
+                <span class="text-2xl leading-none">📷</span>
+                <span>拍照辨識</span>
+              </button>
+
+              <!-- 次要操作按鈕：從相簿選擇照片 -->
+              <button type="button" onclick="document.getElementById('gallery-file-input').click()"
+                class="w-full flex items-center justify-center gap-2.5 px-5 py-3 rounded-xl bg-white hover:bg-amber-50/70 active:scale-[0.99] text-slate-800 text-sm sm:text-base font-extrabold border-2 border-slate-200 hover:border-[#FACC15] shadow-2xs transition">
+                <span class="text-lg leading-none">🖼️</span>
+                <span>從相簿選擇照片</span>
+              </button>
+
+              <p class="text-xs text-slate-500">
+                電腦端可直接將卡牌照片拖入此框，或按 <span class="font-bold text-slate-700">Ctrl+V / Cmd+V</span> 貼上剪貼簿截圖
+              </p>
+            </div>
+
+            <!-- 寶可夢卡牌結構 SVG 示意圖 -->
+            <div class="w-full rounded-2xl bg-white border border-slate-200 p-4 sm:p-5 text-left shadow-2xs">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-3.5">
+                <div class="flex items-center gap-2">
+                  <span class="px-2.5 py-1 rounded-lg bg-[#FACC15] text-slate-950 text-xs font-black">
+                    辨識指南 · 卡面圖鑑位置示意圖
+                  </span>
+                </div>
+                <span class="text-xs text-slate-500 font-semibold">請拍清中央插畫與插畫下方圖鑑欄</span>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
+                <!-- SVG 寶可夢卡牌結構示意圖 -->
+                <div class="sm:col-span-5 flex justify-center">
+                  <svg class="w-44 sm:w-48 h-auto drop-shadow-sm" viewBox="0 0 220 296" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- 卡牌黃色經典外框 -->
+                    <rect x="6" y="6" width="208" height="284" rx="15" fill="#FEF9C3" stroke="#FACC15" stroke-width="4"/>
+                    <rect x="14" y="14" width="192" height="268" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5"/>
+
+                    <!-- 頂部寶可夢名稱與 HP -->
+                    <text x="24" y="33" fill="#0F172A" font-size="11" font-weight="900" font-family="sans-serif">皮卡丘</text>
+                    <text x="194" y="33" text-anchor="end" fill="#DC2626" font-size="10" font-weight="900" font-family="monospace">HP 70</text>
+
+                    <!-- 1. 綠色／黃色高亮框標示中央「寶可夢插畫」 -->
+                    <rect x="22" y="42" width="176" height="90" rx="8" fill="#ECFDF5" stroke="#10B981" stroke-width="2.5"/>
+                    <!-- 示意圖精靈球剪影 -->
+                    <circle cx="110" cy="88" r="22" fill="#D1FAE5" stroke="#059669" stroke-width="1.8"/>
+                    <path d="M88 88H132" stroke="#059669" stroke-width="1.8"/>
+                    <circle cx="110" cy="88" r="5.5" fill="#FACC15" stroke="#047857" stroke-width="1.5"/>
+                    <rect x="52" y="47" width="116" height="16" rx="4" fill="#10B981"/>
+                    <text x="110" y="58" text-anchor="middle" fill="#FFFFFF" font-size="8.5" font-weight="bold" font-family="sans-serif">
+                      ✅ 寶可夢插畫區
+                    </text>
+
+                    <!-- 2. 黃色／綠色高亮框標示插畫正下方「圖鑑資訊欄」 -->
+                    <rect x="22" y="136" width="176" height="36" rx="7" fill="#FEFCE8" stroke="#EAB308" stroke-width="2.5"/>
+                    <text x="110" y="150" text-anchor="middle" fill="#15803D" font-size="8.5" font-weight="900" font-family="sans-serif">
+                      ✅ 讀取此處（全國圖鑑編號）
+                    </text>
+                    <text x="110" y="164" text-anchor="middle" fill="#0F172A" font-size="8.5" font-weight="bold" font-family="monospace">
+                      NO.0025 鼠寶可夢 身高：0.4m
+                    </text>
+
+                    <!-- 中段招式欄位示意線條 -->
+                    <rect x="26" y="182" width="168" height="8" rx="4" fill="#CBD5E1"/>
+                    <rect x="26" y="196" width="138" height="8" rx="4" fill="#E2E8F0"/>
+                    <rect x="26" y="210" width="152" height="8" rx="4" fill="#E2E8F0"/>
+
+                    <!-- 3. 紅色虛線框劃掉左下角／右下角卡牌系列號 -->
+                    <rect x="20" y="228" width="86" height="44" rx="7" fill="#FEF2F2" stroke="#EF4444" stroke-width="1.8" stroke-dasharray="4 3"/>
+                    <text x="63" y="242" text-anchor="middle" fill="#DC2626" font-size="7.2" font-weight="bold" font-family="sans-serif">❌ 非此處</text>
+                    <text x="63" y="253" text-anchor="middle" fill="#991B1B" font-size="6.8" font-family="sans-serif">(此為卡牌系列號)</text>
+                    <text x="63" y="265" text-anchor="middle" fill="#94A3B8" font-size="8.5" font-weight="bold" font-family="monospace">025/198</text>
+                    <line x1="25" y1="268" x2="101" y2="232" stroke="#EF4444" stroke-width="2" stroke-dasharray="3 2"/>
+
+                    <rect x="114" y="228" width="86" height="44" rx="7" fill="#FEF2F2" stroke="#EF4444" stroke-width="1.8" stroke-dasharray="4 3"/>
+                    <text x="157" y="242" text-anchor="middle" fill="#DC2626" font-size="7.2" font-weight="bold" font-family="sans-serif">❌ 非此處</text>
+                    <text x="157" y="253" text-anchor="middle" fill="#991B1B" font-size="6.8" font-family="sans-serif">(此為卡牌系列號)</text>
+                    <text x="157" y="265" text-anchor="middle" fill="#94A3B8" font-size="8.5" font-weight="bold" font-family="monospace">001/S-P</text>
+                    <line x1="119" y1="268" x2="195" y2="232" stroke="#EF4444" stroke-width="2" stroke-dasharray="3 2"/>
+                  </svg>
+                </div>
+
+                <!-- 拍攝與辨識要點說明 -->
+                <div class="sm:col-span-7 space-y-2.5 text-xs text-slate-600">
+                  <div class="p-3 rounded-xl bg-emerald-50/80 border border-emerald-200">
+                    <p class="font-black text-emerald-800 mb-0.5">✅ 讀取位置：插畫下方「圖鑑資訊欄」</p>
+                    <p class="leading-relaxed text-emerald-950/80">標準普卡在插畫框正下方印有 <code class="px-1.5 py-0.5 rounded bg-white text-emerald-800 font-mono font-bold border border-emerald-200">NO.0025 鼠寶可夢 身高：0.4m</code>，拍清此行可直接讀取全國圖鑑編號。</p>
+                  </div>
+                  <div class="p-3 rounded-xl bg-amber-50/90 border border-amber-200">
+                    <p class="font-black text-amber-900 mb-0.5">🧠 特殊卡（ex / V / GX / 全圖卡）自動比對</p>
+                    <p class="leading-relaxed text-amber-950/80">若卡面未印圖鑑資訊欄，AI 會根據寶可夢插畫與名稱自動匹配官方全國圖鑑編號。</p>
+                  </div>
+                  <div class="p-3 rounded-xl bg-red-50/70 border border-red-200">
+                    <p class="font-black text-[#DC2626] mb-0.5">❌ 自動排除底部擴充包卡號</p>
+                    <p class="leading-relaxed text-slate-600">系統會自動過濾左下角或右下角的 <code class="font-mono font-bold text-slate-700">025/198</code> 等系列編號，避免誤判。</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 狀態 B：已載入照片預覽與「🔍 放大檢視圖鑑欄 / 插畫」操作區 -->
+          <div id="photo-preview-wrapper" class="hidden space-y-4">
+            
+            <!-- 照片預覽視口 -->
+            <div id="photo-preview-frame"
+              class="relative w-full h-[350px] sm:h-[420px] rounded-2xl overflow-hidden border-2 border-slate-300 bg-slate-900 flex items-center justify-center select-none shadow-inner">
+              <img id="photo-preview-img" src="" alt="寶可夢卡牌照片預覽"
+                class="max-h-full max-w-full object-contain transition-transform duration-300 ease-out" />
+
+              <!-- 2.2倍局部放大模式時的浮動焦點切換列 -->
+              <div id="zoom-overlay-controls" class="hidden absolute top-3 inset-x-3 flex flex-wrap items-center justify-between gap-2 z-10">
+                <span class="px-3 py-1 rounded-full bg-slate-950/90 backdrop-blur border border-[#FACC15] text-xs font-extrabold text-[#FACC15] shadow-md">
+                  🔍 局部放大檢視中 (2.2x)
+                </span>
+                <div class="inline-flex rounded-xl bg-slate-950/90 backdrop-blur border border-slate-700 p-1 shadow-lg">
+                  <button id="btn-focus-dexbar" type="button" onclick="setZoomFocusTarget('dexbar')"
+                    class="px-3 py-1 rounded-lg text-xs font-extrabold bg-[#DC2626] text-white transition">
+                    圖鑑資訊欄
+                  </button>
+                  <button id="btn-focus-artwork" type="button" onclick="setZoomFocusTarget('artwork')"
+                    class="px-3 py-1 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition">
+                    寶可夢插畫
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 預覽工具按鈕列 -->
+            <div class="grid grid-cols-2 sm:flex sm:flex-wrap items-center justify-center gap-2.5">
+              <!-- 重新拍照 -->
+              <button type="button" onclick="retakePhoto()"
+                class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white hover:bg-slate-100 active:scale-95 text-slate-800 text-xs sm:text-sm font-extrabold border border-slate-300 shadow-2xs transition">
+                <span>📷</span>
+                <span>重新拍照</span>
+              </button>
+
+              <!-- 更換照片 -->
+              <button type="button" onclick="document.getElementById('gallery-file-input').click()"
+                class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white hover:bg-slate-100 active:scale-95 text-slate-700 text-xs sm:text-sm font-bold border border-slate-300 shadow-2xs transition">
+                <span>🖼️</span>
+                <span>更換照片</span>
+              </button>
+
+              <!-- 放大檢視圖鑑欄 / 插畫 -->
+              <button id="btn-toggle-zoom" type="button" onclick="toggleArtworkZoom()"
+                class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 active:scale-95 text-amber-900 text-xs sm:text-sm font-extrabold border border-amber-300 transition">
+                <span>🔍</span>
+                <span id="zoom-btn-label">放大檢視圖鑑欄 / 插畫</span>
+              </button>
+
+              <!-- 重新辨識 -->
+              <button id="btn-re-recognize" type="button" onclick="triggerReRecognition()"
+                class="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#DC2626] hover:bg-[#B91C1C] active:scale-95 text-white text-xs sm:text-sm font-black shadow-md shadow-red-600/20 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                <span>🔄</span>
+                <span>重新辨識</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           右側欄（5欄）：Pokédex 圖鑑辨識結果卡片與即時微調編輯區
+      ====================================================================== -->
+      <section class="lg:col-span-5 bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 shadow-sm space-y-5">
+        
+        <!-- 結果面板標題列 -->
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3.5">
+          <div class="flex items-center gap-2.5">
+            <span class="w-3 h-3 rounded-full bg-[#FACC15] ring-2 ring-amber-300"></span>
+            <h2 class="text-base sm:text-lg font-black text-slate-800">Pokédex 圖鑑辨識結果</h2>
+          </div>
+          <span id="result-status-tag" class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 text-xs font-bold">
+            等待拍照辨識
+          </span>
+        </div>
+
+        <!-- 狀態 1：尚未辨識時的空狀態 -->
+        <div id="result-empty-state" class="py-12 px-4 text-center flex flex-col items-center justify-center border border-dashed border-slate-200 rounded-2xl bg-[#F8FAFC]">
+          <div class="w-16 h-16 rounded-2xl bg-white border border-slate-200 shadow-2xs flex items-center justify-center mb-3.5">
+            <svg class="w-9 h-9 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="12" cy="12" r="9"/>
+              <path d="M3 12H9M15 12H21"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </div>
+          <p class="text-sm font-black text-slate-700 mb-1">尚未辨識任何寶可夢卡牌</p>
+          <p class="text-xs text-slate-500 max-w-xs leading-relaxed">
+            點擊左側「📷 拍照辨識」或上傳卡牌照片，AI 將自動讀取並匹配該寶可夢的全國圖鑑編號與三語資料。
+          </p>
+        </div>
+
+        <!-- 狀態 2：Gemini AI 辨識載入中 -->
+        <div id="result-loading-state" class="hidden py-14 px-4 text-center flex flex-col items-center justify-center border border-red-200 rounded-2xl bg-red-50/40">
+          <div class="w-14 h-14 mb-4 flex items-center justify-center">
+            <svg class="w-12 h-12 animate-pokeball" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2C6.48 2 2 6.48 2 12H8.5C9.05 10.54 10.41 9.5 12 9.5C13.59 9.5 14.95 10.54 15.5 12H22C22 6.48 17.52 2 12 2Z" fill="#DC2626"/>
+              <path d="M12 22C17.52 22 22 17.52 22 12H15.5C14.95 13.46 13.59 14.5 12 14.5C10.41 14.5 9.05 13.46 8.5 12H2C2 17.52 6.48 22 12 22Z" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="0.6"/>
+              <circle cx="12" cy="12" r="2.8" fill="#FACC15" stroke="#1E293B" stroke-width="1.4"/>
+            </svg>
+          </div>
+          <p class="text-sm sm:text-base font-black text-[#DC2626] mb-1">圖鑑 AI 正在讀取寶可夢編號...</p>
+          <p class="text-xs text-slate-500">正在檢視插畫下方圖鑑欄並比對官方全國圖鑑（#0001 – #1025）</p>
+        </div>
+
+        <!-- 狀態 3：辨識結果卡片與即時微調表單 -->
+        <div id="result-content-state" class="hidden space-y-4">
+
+          <!-- 未識別出寶可夢提示橫幅（當 isPokemonFound === false 時顯示） -->
+          <div id="non-pokemon-banner" class="hidden p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 text-xs space-y-1">
+            <p class="font-black flex items-center gap-1.5">
+              <span>⚠️</span>
+              <span>未偵測到特定寶可夢（可能為訓練家卡或能量卡）</span>
+            </p>
+            <p class="text-amber-900 leading-relaxed">
+              此卡牌上沒有獨立的寶可夢物種，全國圖鑑編號顯示為 <code class="font-mono font-bold">#0000</code>。若卡面包含特定寶可夢，您可直接在下方手動輸入圖鑑編號修正。
+            </p>
+          </div>
+
+          <!-- Pokédex 圖鑑螢幕主卡片 -->
+          <div class="rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 text-white p-4 sm:p-5 shadow-lg border-2 border-slate-700 space-y-4">
+            
+            <!-- 頂部標籤列：全國圖鑑標題 + 辨識來源徽章 -->
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="text-[11px] font-extrabold tracking-wider uppercase text-slate-300">
+                全國圖鑑編號 · National Pokédex
+              </span>
+              <span id="res-source-badge"
+                class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-400/35">
+                📄 卡面圖鑑欄直讀
+              </span>
+            </div>
+
+            <!-- 中央主視覺：官方立繪縮圖 + 超大號電氣黃圖鑑編號 + 三語名稱 -->
+            <div class="flex items-center gap-4">
+              <!-- 官方立繪容器（含精靈球 SVG 錯誤降級圖示） -->
+              <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-slate-800/95 border border-slate-600/80 p-1.5 flex items-center justify-center flex-shrink-0 relative overflow-hidden shadow-inner">
+                <img id="res-official-artwork" src="" alt="寶可夢官方立繪"
+                  class="w-full h-full object-contain relative z-10 drop-shadow" />
+                <div id="res-artwork-fallback" class="hidden w-full h-full flex items-center justify-center">
+                  <svg class="w-12 h-12" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 2C6.48 2 2 6.48 2 12H8.5C9.05 10.54 10.41 9.5 12 9.5C13.59 9.5 14.95 10.54 15.5 12H22C22 6.48 17.52 2 12 2Z" fill="#DC2626"/>
+                    <path d="M12 22C17.52 22 22 17.52 22 12H15.5C14.95 13.46 13.59 14.5 12 14.5C10.41 14.5 9.05 13.46 8.5 12H2C2 17.52 6.48 22 12 22Z" fill="#F8FAFC"/>
+                    <circle cx="12" cy="12" r="2.6" fill="#FACC15" stroke="#0F172A" stroke-width="1.4"/>
+                  </svg>
+                </div>
+              </div>
+
+              <!-- 編號與三語名稱 -->
+              <div class="min-w-0 flex-1 space-y-1">
+                <div id="res-pokedex-hero-number"
+                  class="text-3xl sm:text-4xl font-mono font-black tracking-wider text-[#FACC15] leading-none drop-shadow-xs">
+                  #0025
+                </div>
+                <div class="flex flex-wrap items-baseline gap-2 pt-1">
+                  <h3 id="res-pokemon-name-zh" class="text-lg sm:text-xl font-black text-white truncate">
+                    皮卡丘
+                  </h3>
+                  <span id="res-pokemon-category" class="text-xs text-slate-300 font-semibold">
+                    鼠寶可夢
+                  </span>
+                </div>
+                <p id="res-pokemon-subnames" class="text-xs text-slate-300 truncate">
+                  Pikachu / ピカチュウ
+                </p>
+              </div>
+            </div>
+
+            <!-- 屬性徽章、形態與世代標籤列 -->
+            <div class="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-slate-700/80">
+              <div id="res-types-container" class="flex flex-wrap items-center gap-1.5">
+                <!-- 由 JS 動態渲染 18 種官方屬性配色徽章 -->
+              </div>
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span id="res-form-badge" class="text-[11px] font-bold text-[#FACC15] bg-amber-500/15 px-2.5 py-0.5 rounded-lg border border-[#FACC15]/30">
+                  一般形態
+                </span>
+                <span id="res-generation-badge" class="text-[11px] font-semibold text-slate-200 bg-slate-800 px-2.5 py-0.5 rounded-lg border border-slate-600">
+                  第1世代
+                </span>
+              </div>
+            </div>
+
+            <!-- AI 辨識說明（note）與信心度 -->
+            <div class="rounded-xl bg-slate-950/60 border border-slate-700/70 px-3 py-2 flex items-start justify-between gap-2 text-[11px]">
+              <p id="res-note-text" class="text-slate-300 leading-relaxed">
+                已讀取插畫下方 NO.0025 圖鑑欄，排除底部卡號 025/198
+              </p>
+              <span id="res-confidence-badge" class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold flex-shrink-0">
+                高信心度
+              </span>
+            </div>
+          </div>
+
+          <!-- 三格式一鍵複製按鈕組 -->
+          <div class="space-y-2">
+            <span class="block text-xs font-extrabold text-slate-600">三格式一鍵複製：</span>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <button id="btn-copy-formatted" type="button" onclick="copyByFormat('formatted')"
+                class="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#DC2626] hover:bg-[#B91C1C] active:scale-95 text-white text-xs font-black shadow-xs transition">
+                <span id="label-copy-formatted" class="truncate">📋 複製 #0025</span>
+              </button>
+
+              <button id="btn-copy-raw" type="button" onclick="copyByFormat('raw')"
+                class="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-white text-xs font-black shadow-xs transition">
+                <span id="label-copy-raw" class="truncate">📋 複製純數字 25</span>
+              </button>
+
+              <button id="btn-copy-full" type="button" onclick="copyByFormat('full')"
+                class="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#FACC15] hover:bg-amber-300 active:scale-95 text-slate-950 text-xs font-black shadow-xs transition">
+                <span id="label-copy-full" class="truncate">📋 複製 #0025 皮卡丘</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 即時手動微調區（修改後自動同步更新至下方收藏紀錄） -->
+          <div class="pt-3 border-t border-slate-100 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-black text-slate-700">手動微調辨識結果</span>
+              <span class="text-[11px] text-emerald-600 font-bold flex items-center gap-1">
+                <span>✓</span>
+                <span>修改後即時同步至收藏紀錄</span>
+              </span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <!-- 圖鑑編號 -->
+              <div class="space-y-1">
+                <label for="edit-dex-number" class="block text-[11px] font-bold text-slate-500">全國圖鑑編號（純數字）</label>
+                <input id="edit-dex-number" type="number" min="0" max="9999" oninput="syncCurrentEditToHistory()"
+                  class="w-full bg-[#F8FAFC] border border-slate-300 focus:border-[#DC2626] focus:bg-white rounded-xl px-3 py-2 text-sm font-mono font-black text-slate-900 outline-none transition"
+                  placeholder="例如 25" />
+              </div>
+
+              <!-- 繁中名稱 -->
+              <div class="space-y-1">
+                <label for="edit-name-zh" class="block text-[11px] font-bold text-slate-500">繁體中文名稱</label>
+                <input id="edit-name-zh" type="text" oninput="syncCurrentEditToHistory()"
+                  class="w-full bg-[#F8FAFC] border border-slate-300 focus:border-[#DC2626] focus:bg-white rounded-xl px-3 py-2 text-sm font-bold text-slate-900 outline-none transition"
+                  placeholder="例如 皮卡丘" />
+              </div>
+
+              <!-- 英文名稱 -->
+              <div class="space-y-1">
+                <label for="edit-name-en" class="block text-[11px] font-bold text-slate-500">英文名稱</label>
+                <input id="edit-name-en" type="text" oninput="syncCurrentEditToHistory()"
+                  class="w-full bg-[#F8FAFC] border border-slate-300 focus:border-[#DC2626] focus:bg-white rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 outline-none transition"
+                  placeholder="例如 Pikachu" />
+              </div>
+
+              <!-- 形態 -->
+              <div class="space-y-1">
+                <label for="edit-form" class="block text-[11px] font-bold text-slate-500">寶可夢形態</label>
+                <input id="edit-form" type="text" oninput="syncCurrentEditToHistory()"
+                  class="w-full bg-[#F8FAFC] border border-slate-300 focus:border-[#DC2626] focus:bg-white rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 outline-none transition"
+                  placeholder="例如 一般形態 / 超級進化 / 太晶化" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- =========================================================================
+         下半部：本地圖鑑紀錄庫（localStorage 儲存、排序切換、搜尋與 CSV 匯出）
+    ========================================================================== -->
+    <section id="history-section" class="bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 shadow-sm space-y-5">
+      
+      <!-- 紀錄庫標題與操作工具列 -->
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-red-50 border border-red-200 flex items-center justify-center text-[#DC2626] flex-shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+            </svg>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="text-base sm:text-lg font-black text-slate-800">本地圖鑑收藏紀錄庫</h2>
+              <span id="history-total-pill" class="px-2.5 py-0.5 rounded-full text-xs font-mono font-black bg-[#FACC15] text-slate-950">
+                0 筆
+              </span>
+            </div>
+            <p class="text-xs text-slate-500">每次辨識自動儲存於瀏覽器本機，支援依全國圖鑑編號升序整理與匯出 Excel CSV</p>
+          </div>
+        </div>
+
+        <!-- 排序切換、搜尋框、匯出 CSV 與清空 -->
+        <div class="flex flex-wrap items-center gap-2.5">
+          <!-- 排序切換：「🕒 最新掃描」vs「🔢 圖鑑編號升序（#0001 → #1025）」 -->
+          <div class="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+            <button id="sort-btn-newest" type="button" onclick="setHistorySortMode('newest')"
+              class="px-3 py-1.5 rounded-lg text-xs font-extrabold bg-white text-slate-900 shadow-2xs transition">
+              🕒 最新掃描
+            </button>
+            <button id="sort-btn-pokedex" type="button" onclick="setHistorySortMode('pokedex')"
+              class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 transition">
+              🔢 圖鑑編號升序（#0001 → #1025）
+            </button>
+          </div>
+
+          <!-- 即時關鍵字搜尋 -->
+          <div class="relative flex-1 sm:flex-initial sm:w-56">
+            <input id="history-search" type="text" oninput="renderHistoryList()"
+              placeholder="搜尋 025、皮卡丘、Pikachu、電..."
+              class="w-full bg-[#F8FAFC] border border-slate-300 focus:border-[#DC2626] focus:bg-white rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 outline-none transition" />
+            <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+          </div>
+
+          <!-- 匯出 CSV (Excel) -->
+          <button type="button" onclick="exportToCSV()"
+            class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs sm:text-sm font-extrabold shadow-2xs transition">
+            <span>📥 匯出 CSV (Excel)</span>
+          </button>
+
+          <!-- 清空全部紀錄 -->
+          <button type="button" onclick="openClearConfirmModal()"
+            class="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-red-50 hover:text-[#DC2626] hover:border-red-200 active:scale-95 text-slate-600 text-xs sm:text-sm font-bold border border-slate-200 transition">
+            <span>🗑️ 清空全部</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 空狀態 -->
+      <div id="history-empty-view" class="py-12 text-center text-slate-400 text-sm">
+        尚無寶可夢圖鑑辨識紀錄，拍攝或匯入您的第一張寶可夢卡牌開始建立圖鑑吧！
+      </div>
+
+      <!-- 桌面端表格檢視 -->
+      <div id="history-table-wrapper" class="hidden md:block overflow-x-auto rounded-2xl border border-slate-200">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-[#F8FAFC] border-b border-slate-200 text-xs font-black text-slate-500 uppercase tracking-wider">
+              <th class="py-3 px-4 w-24">卡照 / 立繪</th>
+              <th class="py-3 px-4">全國圖鑑編號</th>
+              <th class="py-3 px-4">寶可夢名稱（繁中 / 英 / 日）</th>
+              <th class="py-3 px-4">屬性</th>
+              <th class="py-3 px-4">形態與分類</th>
+              <th class="py-3 px-4">掃描時間</th>
+              <th class="py-3 px-4 text-right">操作</th>
+            </tr>
+          </thead>
+          <tbody id="history-table-body" class="divide-y divide-slate-100 text-sm">
+            <!-- 由 JS 動態渲染 -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 行動裝置卡片列表檢視 -->
+      <div id="history-mobile-list" class="md:hidden space-y-3">
+        <!-- 由 JS 動態渲染 -->
+      </div>
+    </section>
+  </main>
+
+  <!-- 頁尾 -->
+  <footer class="border-t border-slate-200 bg-white/70 py-5 px-4 text-center text-xs text-slate-500">
+    寶可夢圖鑑編號拍照辨識器（Pokémon Pokédex Number Scanner）· 專為繁體中文訓練家打造
+  </footer>
+
+  <!-- Toast 輕提示容器 -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-[90vw] pointer-events-none"></div>
+
+  <!-- 自訂兩步確認清空彈窗（絕不使用原生 confirm / alert） -->
+  <div id="confirm-clear-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white border border-slate-200 rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center gap-3 text-[#DC2626]">
+        <div class="w-10 h-10 rounded-2xl bg-red-50 border border-red-200 flex items-center justify-center flex-shrink-0 font-black text-lg">
+          !
+        </div>
+        <h3 class="text-base font-black text-slate-800">確認清空全部圖鑑紀錄？</h3>
+      </div>
+      <p class="text-xs sm:text-sm text-slate-600 leading-relaxed">
+        此操作將永久移除瀏覽器本機儲存的所有寶可夢圖鑑辨識紀錄，建議先點擊「📥 匯出 CSV (Excel)」進行備份。
+      </p>
+      <div class="flex items-center justify-end gap-2.5 pt-2">
+        <button type="button" onclick="closeClearConfirmModal()"
+          class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-bold transition">
+          取消
+        </button>
+        <button type="button" onclick="confirmClearAllHistory()"
+          class="px-4 py-2.5 rounded-xl bg-[#DC2626] hover:bg-[#B91C1C] text-white text-xs sm:text-sm font-black shadow-md shadow-red-600/20 transition">
+          確認清空全部
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 卡牌大圖預覽視窗 -->
+  <div id="image-preview-modal" onclick="closeImageModal()" class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4 cursor-zoom-out">
+    <div class="relative max-w-md w-full flex flex-col items-center" onclick="event.stopPropagation()">
+      <img id="modal-large-img" src="" alt="卡牌大圖預覽" class="max-h-[80vh] w-auto rounded-2xl border-2 border-white/25 shadow-2xl" />
+      <button type="button" onclick="closeImageModal()"
+        class="mt-4 px-5 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-900 text-sm font-black shadow-lg transition">
+        關閉預覽
+      </button>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       核心 JavaScript 業務邏輯
+  ========================================================================== -->
+  <script>
+    /**
+     * =========================================================================
+     * 全域常數與狀態管理
+     * =========================================================================
+     */
+    const STORAGE_KEY = 'pokedex_scanner_zhhant_v1';
+    const GEMINI_MODEL = 'gemini-2.5-flash';
+    const apiKey = ""; // 執行階段由環境自動注入，保持空字串
+
+    // 18 種台灣繁體中文官方寶可夢屬性專屬配色字典
+    const TYPE_COLOR_MAP = {
+      '一般': 'bg-stone-500 text-white border-stone-600',
+      '火': 'bg-orange-600 text-white border-orange-700',
+      '水': 'bg-sky-600 text-white border-sky-700',
+      '電': 'bg-[#FACC15] text-slate-950 border-amber-500',
+      '草': 'bg-emerald-600 text-white border-emerald-700',
+      '冰': 'bg-cyan-400 text-slate-950 border-cyan-500',
+      '格鬥': 'bg-red-700 text-white border-red-800',
+      '毒': 'bg-purple-600 text-white border-purple-700',
+      '地面': 'bg-amber-700 text-white border-amber-800',
+      '飛行': 'bg-indigo-400 text-white border-indigo-500',
+      '超能力': 'bg-pink-600 text-white border-pink-700',
+      '蟲': 'bg-lime-600 text-white border-lime-700',
+      '岩石': 'bg-yellow-700 text-white border-yellow-800',
+      '幽靈': 'bg-violet-800 text-white border-violet-900',
+      '龍': 'bg-indigo-700 text-white border-indigo-800',
+      '惡': 'bg-neutral-800 text-white border-neutral-950',
+      '鋼': 'bg-slate-500 text-white border-slate-600',
+      '妖精': 'bg-rose-400 text-white border-rose-500'
+    };
+
+    const VALID_TYPES_ZHHANT = Object.keys(TYPE_COLOR_MAP);
+
+    let isScanning = false;              // 是否正在執行 AI 辨識
+    let isZoomed = false;                // 是否啟用 2.2 倍局部放大檢視
+    let zoomTarget = 'dexbar';           // 'dexbar'（圖鑑資訊欄） | 'artwork'（寶可夢插畫）
+    let currentImageBase64 = null;       // 目前壓縮後的 JPEG Base64
+    let currentCardThumb = null;         // 目前卡牌縮圖 DataURL
+    let currentEditingRecordId = null;   // 目前右側面板對應的紀錄 ID
+    let sortMode = 'newest';             // 'newest'（最新掃描） | 'pokedex'（圖鑑編號升序）
+    let scanHistory = [];                // 本地圖鑑辨識紀錄陣列
+
+    /**
+     * =========================================================================
+     * 頁面載入初始化
+     * =========================================================================
+     */
+    window.addEventListener('DOMContentLoaded', () => {
+      loadHistoryFromStorage();
+      renderHistoryList();
+      setupDragAndDrop();
+      setupClipboardPaste();
+    });
+
+    /**
+     * =========================================================================
+     * 拍照、相簿選取、拖曳上傳與 Ctrl+V / Cmd+V 貼上截圖
+     * =========================================================================
+     */
+    function setupDragAndDrop() {
+      const dropZone = document.getElementById('drop-zone');
+
+      ['dragenter', 'dragover'].forEach(evtName => {
+        dropZone.addEventListener(evtName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropZone.classList.add('border-[#DC2626]', 'bg-red-50/40');
+        });
+      });
+
+      ['dragleave', 'drop'].forEach(evtName => {
+        dropZone.addEventListener(evtName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropZone.classList.remove('border-[#DC2626]', 'bg-red-50/40');
+        });
+      });
+
+      dropZone.addEventListener('drop', (e) => {
+        const files = e.dataTransfer?.files;
+        if (files && files.length > 0) {
+          processImageFile(files[0]);
+        }
+      });
+    }
+
+    function setupClipboardPaste() {
+      window.addEventListener('paste', (e) => {
+        const activeTag = document.activeElement?.tagName?.toLowerCase();
+        if (activeTag === 'input' || activeTag === 'textarea') return;
+
+        const items = e.clipboardData?.items;
+        if (!items) return;
+
+        for (let i = 0; i < items.length; i++) {
+          if (items[i].type.startsWith('image/')) {
+            const pastedFile = items[i].getAsFile();
+            if (pastedFile) {
+              e.preventDefault();
+              showToast('已偵測剪貼簿截圖，正在辨識全國圖鑑編號...', 'info');
+              processImageFile(pastedFile);
+              break;
+            }
+          }
+        }
+      });
+    }
+
+    function handleImageInput(event) {
+      const file = event.target.files?.[0];
+      if (file) {
+        processImageFile(file);
+      }
+      event.target.value = '';
+    }
+
+    /**
+     * 在前端 Canvas 等比例縮放壓縮（最長邊 1400px，JPEG 0.88 品質）後自動送出辨識
+     */
+    function processImageFile(file) {
+      if (!file.type.startsWith('image/')) {
+        showToast('請選擇有效的圖片檔案（JPG / PNG / WEBP）', 'error');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = async () => {
+          const maxDim = 1400;
+          const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          const fullDataUrl = canvas.toDataURL('image/jpeg', 0.88);
+          currentImageBase64 = fullDataUrl.split(',')[1];
+          currentCardThumb = createThumbnailFromCanvas(canvas, 140);
+
+          // 重設局部放大狀態並顯示照片預覽
+          isZoomed = false;
+          zoomTarget = 'dexbar';
+          applyPreviewZoomState();
+
+          document.getElementById('photo-preview-img').src = fullDataUrl;
+          document.getElementById('upload-empty-state').classList.add('hidden');
+          document.getElementById('photo-preview-wrapper').classList.remove('hidden');
+
+          // 自動呼叫 Gemini 2.5 Flash 辨識全國圖鑑編號
+          await recognizePokemonPokedex(currentImageBase64, currentCardThumb);
+        };
+        img.onerror = () => {
+          showToast('圖片載入失敗，請重新拍照或更換照片', 'error');
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function retakePhoto() {
+      document.getElementById('camera-capture-input').click();
+    }
+
+    /**
+     * 切換「🔍 放大檢視圖鑑欄 / 插畫」2.2 倍局部放大檢視
+     */
+    function toggleArtworkZoom() {
+      isZoomed = !isZoomed;
+      applyPreviewZoomState();
+    }
+
+    function setZoomFocusTarget(target) {
+      zoomTarget = target;
+      applyPreviewZoomState();
+    }
+
+    function applyPreviewZoomState() {
+      const imgEl = document.getElementById('photo-preview-img');
+      const controlsEl = document.getElementById('zoom-overlay-controls');
+      const toggleBtn = document.getElementById('btn-toggle-zoom');
+      const toggleLabel = document.getElementById('zoom-btn-label');
+      const btnDexbar = document.getElementById('btn-focus-dexbar');
+      const btnArtwork = document.getElementById('btn-focus-artwork');
+
+      if (!imgEl) return;
+
+      if (isZoomed) {
+        // 'dexbar' 聚焦於插畫框正下方的圖鑑資訊欄；'artwork' 聚焦於中央寶可夢插畫
+        imgEl.style.transformOrigin = zoomTarget === 'dexbar' ? '50% 54%' : '50% 34%';
+        imgEl.style.transform = 'scale(2.2)';
+
+        controlsEl.classList.remove('hidden');
+        toggleLabel.textContent = '檢視整張卡牌';
+        toggleBtn.className = 'inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-[#FACC15] hover:bg-amber-300 active:scale-95 text-slate-950 text-xs sm:text-sm font-black shadow-2xs transition';
+
+        if (zoomTarget === 'dexbar') {
+          btnDexbar.className = 'px-3 py-1 rounded-lg text-xs font-extrabold bg-[#DC2626] text-white transition';
+          btnArtwork.className = 'px-3 py-1 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition';
+        } else {
+          btnArtwork.className = 'px-3 py-1 rounded-lg text-xs font-extrabold bg-[#FACC15] text-slate-950 transition';
+          btnDexbar.className = 'px-3 py-1 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition';
+        }
+      } else {
+        imgEl.style.transformOrigin = '50% 50%';
+        imgEl.style.transform = 'scale(1)';
+
+        controlsEl.classList.add('hidden');
+        toggleLabel.textContent = '放大檢視圖鑑欄 / 插畫';
+        toggleBtn.className = 'inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 active:scale-95 text-amber-900 text-xs sm:text-sm font-extrabold border border-amber-300 transition';
+      }
+    }
+
+    async function triggerReRecognition() {
+      if (!currentImageBase64 || !currentCardThumb) {
+        showToast('請先拍照或選擇一張寶可夢卡牌照片', 'error');
+        return;
+      }
+      await recognizePokemonPokedex(currentImageBase64, currentCardThumb);
+    }
+
+    function createThumbnailFromCanvas(sourceCanvas, maxThumbWidth = 140) {
+      const ratio = maxThumbWidth / sourceCanvas.width;
+      const thumbCanvas = document.createElement('canvas');
+      thumbCanvas.width = maxThumbWidth;
+      thumbCanvas.height = Math.round(sourceCanvas.height * ratio);
+      const ctx = thumbCanvas.getContext('2d');
+      ctx.drawImage(sourceCanvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
+      return thumbCanvas.toDataURL('image/jpeg', 0.75);
+    }
+
+    /**
+     * =========================================================================
+     * Gemini 2.5 Flash 結構化全國圖鑑編號辨識（GEMINI_API）
+     * =========================================================================
+     */
+    async function recognizePokemonPokedex(base64ImageData, cardThumbnailUrl) {
+      if (isScanning) return;
+      isScanning = true;
+      setScanningUIState(true);
+
+      const promptText = `你是一位精通寶可夢全國圖鑑（National Pokédex, 1–1025）與寶可夢集換式卡牌遊戲（PTCG）的台灣繁體中文專家。請分析這張寶可夢卡牌照片，辨識卡牌中寶可夢的「全國圖鑑編號（National Pokédex Number）」。
+
+【關鍵區分規則（務必嚴格遵守）】：
+- 你必須回傳寶可夢物種本身的「全國圖鑑編號（1–1025）」（例如：妙蛙種子 = 1 / #0001，噴火龍 = 6 / #0006，水箭龜 = 9 / #0009，皮卡丘 = 25 / #0025，伊布 = 133 / #0133，超夢 = 150 / #0150）。
+- 絕對不要回傳卡牌左下角或右下角的擴充包系列編號／卡號（例如 "025/198"、"185/165"、"001/S-P"、"SVP 085" 皆非圖鑑編號！）。
+- 所有中文字串必須使用標準台灣繁體中文（例如：噴火龍、水箭龜、超夢、格鬥、超能力、蟲、幽靈、龍、惡、鋼、妖精）。
+
+請嚴格依照以下 JSON 欄位規格輸出：
+1. isPokemonFound (boolean)：是否成功辨識出寶可夢。若為純訓練家卡（物品、支援者、競技場）或能量卡且無特定寶可夢物種，設為 false。
+2. pokedexNumber (integer)：全國圖鑑編號純數字（1–1025）。若為雙人組／TAG TEAM 卡牌，填入首位主寶可夢的圖鑑編號並在 note 補充另一隻；若 isPokemonFound 為 false，填 0。
+3. formattedNumber (string)：四位數補零格式，例如 "#0025"、"#0006"、"#1025"；非寶可夢卡填 "#0000"。
+4. nameZhHant (string)：台灣繁體中文官方譯名（不含 ex / V / VMAX / GX 后綴，例如 "皮卡丘"、"噴火龍"、"妙蛙種子"、"水箭龜"、"伊布"、"超夢"；若為訓練家或能量卡則填卡名）。
+5. nameEn (string)：英文名稱，例如 "Pikachu"、"Charizard"。
+6. nameJa (string)：日文名稱，例如 "ピカチュウ"、"リザードン"。
+7. form (string)：形態，例如 "一般形態"、"阿羅拉的樣子"、"伽勒爾的樣子"、"洗翠的樣子"、"帕底亞的樣子"、"超級進化"、"太晶化"。
+8. category (string)：分類，例如 "鼠寶可夢"、"火焰寶可夢"。
+9. generation (string)：世代，例如 "第1世代"、"第2世代" 至 "第9世代"。
+10. types (array of strings)：繁體中文屬性陣列，僅限使用以下 18 個標準詞彙："一般"、"火"、"水"、"電"、"草"、"冰"、"格鬥"、"毒"、"地面"、"飛行"、"超能力"、"蟲"、"岩石"、"幽靈"、"龍"、"惡"、"鋼"、"妖精"。
+11. source (string)：若從卡面插畫下方圖鑑欄直接讀取到 NO.xxxx，回傳 "card_pokedex_line"；若卡面未印圖鑑欄而由插畫與名稱匹配全國圖鑑，回傳 "species_ai_match"。
+12. confidence (string)：辨識信心度，僅限 "high"、"medium" 或 "low"。
+13. note (string)：簡短台灣繁體中文辨識說明，例如 "已讀取插畫下方 NO.0025 圖鑑欄，排除底部卡號 025/198"。`;
+
+      const payload = {
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: promptText },
+              {
+                inlineData: {
+                  mimeType: "image/jpeg",
+                  data: base64ImageData
+                }
+              }
+            ]
+          }
+        ],
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "OBJECT",
+            properties: {
+              isPokemonFound: {
+                type: "BOOLEAN",
+                description: "是否成功辨識出寶可夢"
+              },
+              pokedexNumber: {
+                type: "INTEGER",
+                description: "全國圖鑑編號（1-1025），例如 25"
+              },
+              formattedNumber: {
+                type: "STRING",
+                description: "四位數補零格式，例如 #0025"
+              },
+              nameZhHant: {
+                type: "STRING",
+                description: "台灣繁體中文官方譯名，例如 皮卡丘"
+              },
+              nameEn: {
+                type: "STRING",
+                description: "英文名稱，例如 Pikachu"
+              },
+              nameJa: {
+                type: "STRING",
+                description: "日文名稱，例如 ピカチュウ"
+              },
+              form: {
+                type: "STRING",
+                description: "形態，例如 一般形態、阿羅拉的樣子、伽勒爾的樣子、洗翠的樣子、帕底亞的樣子、超級進化、太晶化"
+              },
+              category: {
+                type: "STRING",
+                description: "分類，例如 鼠寶可夢"
+              },
+              generation: {
+                type: "STRING",
+                description: "世代，例如 第1世代"
+              },
+              types: {
+                type: "ARRAY",
+                items: { type: "STRING" },
+                description: "繁體中文屬性陣列，僅限 18 種官方屬性"
+              },
+              source: {
+                type: "STRING",
+                description: "card_pokedex_line 或 species_ai_match"
+              },
+              confidence: {
+                type: "STRING",
+                description: "high、medium 或 low"
+              },
+              note: {
+                type: "STRING",
+                description: "簡短繁體中文辨識說明"
+              }
+            },
+            required: [
+              "isPokemonFound",
+              "pokedexNumber",
+              "formattedNumber",
+              "nameZhHant",
+              "nameEn",
+              "nameJa",
+              "form",
+              "category",
+              "generation",
+              "types",
+              "source",
+              "confidence",
+              "note"
+            ],
+            propertyOrdering: [
+              "isPokemonFound",
+              "pokedexNumber",
+              "formattedNumber",
+              "nameZhHant",
+              "nameEn",
+              "nameJa",
+              "form",
+              "category",
+              "generation",
+              "types",
+              "source",
+              "confidence",
+              "note"
+            ]
+          }
+        }
+      };
+
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+
+      try {
+        const responseData = await fetchWithExponentialBackoff(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const rawText = responseData?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!rawText) {
+          throw new Error('AI 未回傳有效的圖鑑辨識內容');
+        }
+
+        const parsed = JSON.parse(rawText);
+        const foundFlag = Boolean(parsed.isPokemonFound);
+        const numericDex = foundFlag ? Math.max(0, parseInt(parsed.pokedexNumber, 10) || 0) : 0;
+        const formattedDex = formatPokedexNumber(numericDex);
+
+        // 過濾確保屬性符合 18 種繁體中文標準屬性
+        const cleanTypes = Array.isArray(parsed.types)
+          ? parsed.types.map(t => String(t).trim()).filter(t => VALID_TYPES_ZHHANT.includes(t))
+          : [];
+
+        const normalizedRecord = {
+          id: 'dex_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+          isPokemonFound: foundFlag && numericDex > 0,
+          pokedexNumber: numericDex,
+          formattedNumber: formattedDex,
+          nameZhHant: (parsed.nameZhHant || (foundFlag ? '未知寶可夢' : '非寶可夢卡牌')).trim(),
+          nameEn: (parsed.nameEn || '').trim(),
+          nameJa: (parsed.nameJa || '').trim(),
+          form: (parsed.form || '一般形態').trim(),
+          category: (parsed.category || (foundFlag ? '寶可夢' : '非寶可夢卡')).trim(),
+          generation: (parsed.generation || (foundFlag ? '未知世代' : '訓練家 / 能量卡')).trim(),
+          types: cleanTypes.length > 0 ? cleanTypes : (foundFlag && numericDex > 0 ? ['一般'] : []),
+          source: parsed.source === 'card_pokedex_line' ? 'card_pokedex_line' : 'species_ai_match',
+          confidence: ['high', 'medium', 'low'].includes(parsed.confidence) ? parsed.confidence : 'high',
+          note: (parsed.note || '').trim(),
+          cardThumbnail: cardThumbnailUrl,
+          timestamp: formatDateTime(new Date()),
+          createdAtMs: Date.now()
+        };
+
+        scanHistory.unshift(normalizedRecord);
+        saveHistoryToStorage();
+        renderHistoryList();
+        displayRecognitionResult(normalizedRecord);
+
+        if (normalizedRecord.isPokemonFound) {
+          showToast(`辨識成功：${normalizedRecord.formattedNumber} ${normalizedRecord.nameZhHant}`, 'success');
+        } else {
+          showToast('辨識完成：此卡牌未偵測到獨立寶可夢物種', 'info');
+        }
+      } catch (error) {
+        setScanningUIState(false);
+        const statusTag = document.getElementById('result-status-tag');
+        statusTag.textContent = '辨識失敗';
+        statusTag.className = 'px-2.5 py-1 rounded-lg bg-red-100 text-[#DC2626] text-xs font-extrabold';
+        showToast('圖鑑辨識連線失敗，請確認網路狀態或點擊「重新辨識」再試一次', 'error');
+      } finally {
+        isScanning = false;
+      }
+    }
+
+    /**
+     * 指數退避重試機制（1s -> 2s -> 4s），避免偶發限流或網路波動
+     */
+    async function fetchWithExponentialBackoff(url, options, maxRetries = 3) {
+      let delay = 1000;
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          const response = await fetch(url, options);
+          if (!response.ok) {
+            if ((response.status === 429 || response.status >= 500) && attempt < maxRetries) {
+              await new Promise(resolve => setTimeout(resolve, delay));
+              delay *= 2;
+              continue;
+            }
+            throw new Error(`HTTP ${response.status}`);
+          }
+          return await response.json();
+        } catch (err) {
+          if (attempt >= maxRetries) {
+            throw err;
+          }
+          await new Promise(resolve => setTimeout(resolve, delay));
+          delay *= 2;
+        }
+      }
+    }
+
+    /**
+     * 將純數字圖鑑編號格式化為四位數補零字串，例如 25 -> "#0025", 1025 -> "#1025"
+     */
+    function formatPokedexNumber(num) {
+      const n = Math.max(0, parseInt(num, 10) || 0);
+      return '#' + String(n).padStart(4, '0');
+    }
+
+    /**
+     * =========================================================================
+     * 辨識結果 UI 渲染、官方立繪載入、18 屬性徽章與即時手動微調
+     * =========================================================================
+     */
+    function setScanningUIState(loading) {
+      const btnReRecognize = document.getElementById('btn-re-recognize');
+      const emptyState = document.getElementById('result-empty-state');
+      const loadingState = document.getElementById('result-loading-state');
+      const contentState = document.getElementById('result-content-state');
+      const statusTag = document.getElementById('result-status-tag');
+
+      if (loading) {
+        if (btnReRecognize) btnReRecognize.disabled = true;
+        emptyState.classList.add('hidden');
+        contentState.classList.add('hidden');
+        loadingState.classList.remove('hidden');
+        statusTag.textContent = 'AI 辨識中...';
+        statusTag.className = 'px-2.5 py-1 rounded-lg bg-[#FACC15] text-slate-950 text-xs font-black animate-pulse';
+      } else {
+        if (btnReRecognize) btnReRecognize.disabled = false;
+        loadingState.classList.add('hidden');
+      }
+    }
+
+    function displayRecognitionResult(record) {
+      setScanningUIState(false);
+      currentEditingRecordId = record.id;
+
+      document.getElementById('result-empty-state').classList.add('hidden');
+      document.getElementById('result-content-state').classList.remove('hidden');
+
+      const statusTag = document.getElementById('result-status-tag');
+      if (record.isPokemonFound && record.pokedexNumber > 0) {
+        statusTag.textContent = '圖鑑已匹配';
+        statusTag.className = 'px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 text-xs font-black';
+        document.getElementById('non-pokemon-banner').classList.add('hidden');
+      } else {
+        statusTag.textContent = '非寶可夢卡';
+        statusTag.className = 'px-2.5 py-1 rounded-lg bg-amber-100 text-amber-900 text-xs font-black';
+        document.getElementById('non-pokemon-banner').classList.remove('hidden');
+      }
+
+      // 填入即時手動微調表單（圖鑑編號、繁中名稱、英文名稱、形態）
+      document.getElementById('edit-dex-number').value = record.pokedexNumber;
+      document.getElementById('edit-name-zh').value = record.nameZhHant;
+      document.getElementById('edit-name-en').value = record.nameEn;
+      document.getElementById('edit-form').value = record.form;
+
+      // 更新 Pokédex 視覺主卡片與三個一鍵複製按鈕
+      updatePokedexVisualCard(record);
+    }
+
+    /**
+     * 更新 Pokédex 結果卡片視覺細節
+     */
+    function updatePokedexVisualCard(record) {
+      const formatted = formatPokedexNumber(record.pokedexNumber);
+      document.getElementById('res-pokedex-hero-number').textContent = formatted;
+      document.getElementById('res-pokemon-name-zh').textContent = record.nameZhHant || '未知寶可夢';
+      document.getElementById('res-pokemon-category').textContent = record.category || '';
+
+      const subNames = [record.nameEn, record.nameJa].filter(Boolean).join(' / ');
+      document.getElementById('res-pokemon-subnames').textContent = subNames || '—';
+      document.getElementById('res-form-badge').textContent = record.form || '一般形態';
+      document.getElementById('res-generation-badge').textContent = record.generation || '未知世代';
+      document.getElementById('res-note-text').textContent = record.note || '已完成全國圖鑑編號比對。';
+
+      // 辨識來源徽章
+      const sourceBadge = document.getElementById('res-source-badge');
+      if (record.source === 'card_pokedex_line') {
+        sourceBadge.textContent = '📄 卡面圖鑑欄直讀';
+        sourceBadge.className = 'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-400/35';
+      } else {
+        sourceBadge.textContent = '🧠 物種智慧匹配';
+        sourceBadge.className = 'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-400/20 text-[#FACC15] border border-[#FACC15]/40';
+      }
+
+      // 信心度標籤
+      const confBadge = document.getElementById('res-confidence-badge');
+      if (record.confidence === 'high') {
+        confBadge.textContent = '高信心度';
+        confBadge.className = 'px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold flex-shrink-0';
+      } else if (record.confidence === 'medium') {
+        confBadge.textContent = '中信心度';
+        confBadge.className = 'px-2 py-0.5 rounded bg-amber-500/20 text-[#FACC15] font-bold flex-shrink-0';
+      } else {
+        confBadge.textContent = '建議核對';
+        confBadge.className = 'px-2 py-0.5 rounded bg-red-500/25 text-red-300 font-bold flex-shrink-0';
+      }
+
+      // 載入官方寶可夢立繪（失敗時優雅降級為精美精靈球 SVG 圖示）
+      const artworkImg = document.getElementById('res-official-artwork');
+      const fallbackBox = document.getElementById('res-artwork-fallback');
+
+      if (record.pokedexNumber > 0) {
+        artworkImg.classList.remove('hidden');
+        fallbackBox.classList.add('hidden');
+        artworkImg.onerror = () => {
+          artworkImg.classList.add('hidden');
+          fallbackBox.classList.remove('hidden');
+        };
+        artworkImg.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${record.pokedexNumber}.png`;
+      } else {
+        artworkImg.classList.add('hidden');
+        fallbackBox.classList.remove('hidden');
+      }
+
+      // 渲染 18 種官方專屬配色屬性徽章
+      const typesContainer = document.getElementById('res-types-container');
+      if (record.types && record.types.length > 0) {
+        typesContainer.innerHTML = record.types.map(t => renderTypeBadgeHtml(t)).join('');
+      } else {
+        typesContainer.innerHTML = `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-700 text-slate-300">無屬性</span>`;
+      }
+
+      // 更新三個一鍵複製按鈕標籤
+      document.getElementById('label-copy-formatted').textContent = `📋 複製 ${formatted}`;
+      document.getElementById('label-copy-raw').textContent = `📋 複製純數字 ${record.pokedexNumber}`;
+      document.getElementById('label-copy-full').textContent = `📋 複製 ${formatted} ${record.nameZhHant}`;
+    }
+
+    function renderTypeBadgeHtml(typeName) {
+      const cleanType = String(typeName || '').trim();
+      const colorClasses = TYPE_COLOR_MAP[cleanType] || 'bg-slate-600 text-white border-slate-700';
+      return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-black border shadow-2xs ${colorClasses}">${escapeHtml(cleanType)}</span>`;
+    }
+
+    /**
+     * 手動微調（圖鑑編號、繁中名稱、英文名稱、形態）即時同步更新至下方收藏紀錄
+     */
+    function syncCurrentEditToHistory() {
+      if (!currentEditingRecordId) return;
+      const idx = scanHistory.findIndex(item => item.id === currentEditingRecordId);
+      if (idx === -1) return;
+
+      const rawNum = Math.max(0, parseInt(document.getElementById('edit-dex-number').value, 10) || 0);
+      const formattedNum = formatPokedexNumber(rawNum);
+      const nameZh = document.getElementById('edit-name-zh').value.trim();
+      const nameEn = document.getElementById('edit-name-en').value.trim();
+      const formVal = document.getElementById('edit-form').value.trim();
+
+      const updatedRecord = {
+        ...scanHistory[idx],
+        isPokemonFound: rawNum > 0,
+        pokedexNumber: rawNum,
+        formattedNumber: formattedNum,
+        nameZhHant: nameZh || '未知寶可夢',
+        nameEn: nameEn,
+        form: formVal || '一般形態'
+      };
+
+      scanHistory[idx] = updatedRecord;
+
+      const statusTag = document.getElementById('result-status-tag');
+      if (updatedRecord.isPokemonFound) {
+        statusTag.textContent = '圖鑑已匹配';
+        statusTag.className = 'px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 text-xs font-black';
+        document.getElementById('non-pokemon-banner').classList.add('hidden');
+      } else {
+        statusTag.textContent = '非寶可夢卡';
+        statusTag.className = 'px-2.5 py-1 rounded-lg bg-amber-100 text-amber-900 text-xs font-black';
+        document.getElementById('non-pokemon-banner').classList.remove('hidden');
+      }
+
+      updatePokedexVisualCard(updatedRecord);
+      saveHistoryToStorage();
+      renderHistoryList();
+    }
+
+    /**
+     * =========================================================================
+     * 三格式一鍵複製功能（使用 document.execCommand('copy') 相容 iFrame 環境）
+     * =========================================================================
+     */
+    function copyByFormat(mode) {
+      const rawNum = Math.max(0, parseInt(document.getElementById('edit-dex-number').value, 10) || 0);
+      const formatted = formatPokedexNumber(rawNum);
+      const nameZh = document.getElementById('edit-name-zh').value.trim();
+
+      let textToCopy = formatted;
+      if (mode === 'raw') {
+        textToCopy = String(rawNum);
+      } else if (mode === 'full') {
+        textToCopy = `${formatted} ${nameZh}`.trim();
+      }
+
+      copyTextToClipboard(textToCopy);
+      showToast(`已成功複製：${textToCopy}`, 'success');
+    }
+
+    function copyTextToClipboard(text) {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      textarea.style.top = '0';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      try {
+        document.execCommand('copy');
+      } catch (e) {
+        // 忽略受限環境例外
+      }
+      document.body.removeChild(textarea);
+    }
+
+    /**
+     * =========================================================================
+     * 本地圖鑑紀錄庫（localStorage）、排序、即時搜尋與匯出 CSV (Excel)
+     * =========================================================================
+     */
+    function loadHistoryFromStorage() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            scanHistory = parsed;
+          }
+        }
+      } catch (e) {
+        scanHistory = [];
+      }
+    }
+
+    function saveHistoryToStorage() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(scanHistory));
+      } catch (e) {
+        if (scanHistory.length > 5) {
+          scanHistory = scanHistory.slice(0, scanHistory.length - 5);
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(scanHistory));
+          } catch (innerErr) {
+            showToast('瀏覽器本機儲存空間已滿，請先匯出 CSV 備份並清理舊紀錄', 'error');
+          }
+        }
+      }
+    }
+
+    function setHistorySortMode(mode) {
+      sortMode = mode;
+      const btnNewest = document.getElementById('sort-btn-newest');
+      const btnPokedex = document.getElementById('sort-btn-pokedex');
+
+      if (mode === 'newest') {
+        btnNewest.className = 'px-3 py-1.5 rounded-lg text-xs font-extrabold bg-white text-slate-900 shadow-2xs transition';
+        btnPokedex.className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 transition';
+      } else {
+        btnPokedex.className = 'px-3 py-1.5 rounded-lg text-xs font-black bg-[#DC2626] text-white shadow-2xs transition';
+        btnNewest.className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 transition';
+      }
+
+      renderHistoryList();
+    }
+
+    function renderHistoryList() {
+      const keyword = (document.getElementById('history-search')?.value || '').trim().toLowerCase();
+
+      // 1. 即時關鍵字篩選（支援 025、#0025、25、繁中名稱、英文名稱、日文名稱、形態或屬性）
+      let list = scanHistory.filter(item => {
+        if (!keyword) return true;
+        const cleanNumQuery = keyword.replace(/^#/, '');
+        return (
+          (item.formattedNumber || '').toLowerCase().includes(keyword) ||
+          String(item.pokedexNumber || '').includes(cleanNumQuery) ||
+          (item.nameZhHant || '').toLowerCase().includes(keyword) ||
+          (item.nameEn || '').toLowerCase().includes(keyword) ||
+          (item.nameJa || '').toLowerCase().includes(keyword) ||
+          (item.form || '').toLowerCase().includes(keyword) ||
+          (item.types || []).some(t => t.toLowerCase().includes(keyword))
+        );
+      });
+
+      // 2. 排序切換
+      if (sortMode === 'pokedex') {
+        list = [...list].sort((a, b) => {
+          const numA = a.pokedexNumber > 0 ? a.pokedexNumber : 999999;
+          const numB = b.pokedexNumber > 0 ? b.pokedexNumber : 999999;
+          if (numA !== numB) return numA - numB;
+          return (b.createdAtMs || 0) - (a.createdAtMs || 0);
+        });
+      }
+
+      // 更新數量徽章
+      document.getElementById('header-count-badge').textContent = scanHistory.length;
+      document.getElementById('history-total-pill').textContent = `${scanHistory.length} 筆`;
+
+      const emptyView = document.getElementById('history-empty-view');
+      const tableWrapper = document.getElementById('history-table-wrapper');
+      const tableBody = document.getElementById('history-table-body');
+      const mobileList = document.getElementById('history-mobile-list');
+
+      if (list.length === 0) {
+        emptyView.textContent = scanHistory.length === 0
+          ? '尚無寶可夢圖鑑辨識紀錄，拍攝或匯入您的第一張寶可夢卡牌開始建立圖鑑吧！'
+          : `找不到符合「${keyword}」的圖鑑紀錄`;
+        emptyView.classList.remove('hidden');
+        tableWrapper.classList.add('hidden');
+        mobileList.innerHTML = '';
+        return;
+      }
+
+      emptyView.classList.add('hidden');
+      tableWrapper.classList.remove('hidden');
+
+      // 渲染桌面端表格
+      tableBody.innerHTML = list.map(item => {
+        const officialUrl = item.pokedexNumber > 0
+          ? `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${item.pokedexNumber}.png`
+          : '';
+        const typesHtml = (item.types && item.types.length > 0)
+          ? item.types.map(t => renderTypeBadgeHtml(t)).join(' ')
+          : '<span class="text-xs text-slate-400">—</span>';
+
+        return `
+          <tr class="hover:bg-slate-50/90 transition">
+            <td class="py-3 px-4">
+              <div class="flex items-center gap-2">
+                <img src="${item.cardThumbnail}" alt="卡牌縮圖" onclick="openImageModal('${item.cardThumbnail}')"
+                  class="w-10 h-14 object-cover rounded-lg border border-slate-200 cursor-zoom-in hover:scale-105 transition bg-slate-100" />
+                ${officialUrl
+                  ? `<img src="${officialUrl}" alt="${escapeHtml(item.nameZhHant)}" onerror="this.style.display='none'"
+                      class="w-11 h-11 object-contain rounded-lg bg-[#F8FAFC] border border-slate-200 p-0.5" />`
+                  : ''}
+              </div>
+            </td>
+            <td class="py-3 px-4">
+              <div class="flex items-center gap-2">
+                <span class="font-mono font-black text-base text-[#DC2626]">${escapeHtml(item.formattedNumber)}</span>
+                <button type="button" onclick="quickCopyText('${escapeJsString(item.formattedNumber)}')" title="複製圖鑑編號"
+                  class="px-2 py-1 rounded-lg bg-slate-100 hover:bg-[#DC2626] text-slate-700 hover:text-white text-[11px] font-extrabold transition">
+                  複製
+                </button>
+              </div>
+            </td>
+            <td class="py-3 px-4">
+              <div class="font-black text-slate-800">${escapeHtml(item.nameZhHant)}</div>
+              <div class="text-xs text-slate-400">${escapeHtml([item.nameEn, item.nameJa].filter(Boolean).join(' / '))}</div>
+            </td>
+            <td class="py-3 px-4">
+              <div class="flex flex-wrap gap-1">${typesHtml}</div>
+            </td>
+            <td class="py-3 px-4">
+              <div class="text-xs font-bold text-slate-700">${escapeHtml(item.form || '一般形態')}</div>
+              <div class="text-[11px] text-slate-400">${escapeHtml([item.category, item.generation].filter(Boolean).join(' · '))}</div>
+            </td>
+            <td class="py-3 px-4 text-xs text-slate-500 font-mono">
+              ${escapeHtml(item.timestamp)}
+            </td>
+            <td class="py-3 px-4 text-right">
+              <div class="inline-flex items-center gap-1.5">
+                <button type="button" onclick="loadRecordIntoEditor('${item.id}')"
+                  class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-[#FACC15] text-slate-800 text-xs font-extrabold transition">
+                  微調
+                </button>
+                <button type="button" onclick="deleteHistoryItem('${item.id}')" title="刪除此筆紀錄"
+                  class="p-1.5 rounded-lg bg-slate-100 hover:bg-red-100 text-slate-500 hover:text-[#DC2626] transition">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      // 渲染行動裝置卡片列表
+      mobileList.innerHTML = list.map(item => {
+        const typesHtml = (item.types && item.types.length > 0)
+          ? item.types.map(t => renderTypeBadgeHtml(t)).join(' ')
+          : '';
+        return `
+          <div class="p-3.5 rounded-2xl bg-[#F8FAFC] border border-slate-200 flex items-center gap-3.5">
+            <img src="${item.cardThumbnail}" alt="${escapeHtml(item.nameZhHant)}" onclick="openImageModal('${item.cardThumbnail}')"
+              class="w-14 h-20 object-cover rounded-xl border border-slate-200 flex-shrink-0 cursor-zoom-in bg-white" />
+            <div class="min-w-0 flex-1 space-y-1.5">
+              <div class="flex items-center justify-between gap-2">
+                <span class="font-mono font-black text-lg text-[#DC2626]">${escapeHtml(item.formattedNumber)}</span>
+                <div class="flex items-center gap-1">${typesHtml}</div>
+              </div>
+              <p class="text-sm font-black text-slate-800 truncate">
+                ${escapeHtml(item.nameZhHant)}
+                <span class="text-xs font-normal text-slate-500">${escapeHtml(item.nameEn)}</span>
+              </p>
+              <div class="flex items-center justify-between gap-2 pt-0.5">
+                <span class="text-[11px] text-slate-500 truncate">${escapeHtml(item.form || '一般形態')} · ${escapeHtml(item.timestamp.split(' ')[0] || '')}</span>
+                <div class="flex items-center gap-1.5 flex-shrink-0">
+                  <button type="button" onclick="quickCopyText('${escapeJsString(item.formattedNumber)}')"
+                    class="px-2.5 py-1 rounded-lg bg-[#DC2626] text-white text-xs font-black">
+                    複製
+                  </button>
+                  <button type="button" onclick="loadRecordIntoEditor('${item.id}')"
+                    class="px-2.5 py-1 rounded-lg bg-white border border-slate-300 text-slate-800 text-xs font-bold">
+                    微調
+                  </button>
+                  <button type="button" onclick="deleteHistoryItem('${item.id}')"
+                    class="p-1 rounded-lg bg-white border border-slate-300 text-slate-500">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function quickCopyText(text) {
+      copyTextToClipboard(text);
+      showToast(`已成功複製圖鑑編號：${text}`, 'success');
+    }
+
+    function loadRecordIntoEditor(recordId) {
+      const record = scanHistory.find(item => item.id === recordId);
+      if (!record) return;
+      displayRecognitionResult(record);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      showToast(`已載入「${record.formattedNumber} ${record.nameZhHant}」至微調面板`, 'info');
+    }
+
+    function deleteHistoryItem(recordId) {
+      scanHistory = scanHistory.filter(item => item.id !== recordId);
+      if (currentEditingRecordId === recordId) {
+        currentEditingRecordId = null;
+      }
+      saveHistoryToStorage();
+      renderHistoryList();
+      showToast('已刪除該筆圖鑑紀錄', 'info');
+    }
+
+    function openClearConfirmModal() {
+      if (scanHistory.length === 0) {
+        showToast('目前圖鑑收藏紀錄庫已是空的', 'info');
+        return;
+      }
+      document.getElementById('confirm-clear-modal').classList.remove('hidden');
+    }
+
+    function closeClearConfirmModal() {
+      document.getElementById('confirm-clear-modal').classList.add('hidden');
+    }
+
+    function confirmClearAllHistory() {
+      scanHistory = [];
+      currentEditingRecordId = null;
+      saveHistoryToStorage();
+      renderHistoryList();
+      closeClearConfirmModal();
+      showToast('已清空全部圖鑑紀錄', 'info');
+    }
+
+    /**
+     * 匯出包含 UTF-8 BOM 的 Excel 相容 CSV 檔案，確保繁體中文不亂碼
+     */
+    function exportToCSV() {
+      if (scanHistory.length === 0) {
+        showToast('尚無圖鑑紀錄可匯出', 'error');
+        return;
+      }
+
+      const headers = [
+        '掃描時間',
+        '全國圖鑑編號(標準格式)',
+        '圖鑑純數字編號',
+        '繁體中文名稱',
+        '英文名稱',
+        '日文名稱',
+        '屬性',
+        '形態',
+        '分類',
+        '世代',
+        '辨識來源',
+        '辨識說明'
+      ];
+
+      let exportList = [...scanHistory];
+      if (sortMode === 'pokedex') {
+        exportList.sort((a, b) => {
+          const numA = a.pokedexNumber > 0 ? a.pokedexNumber : 999999;
+          const numB = b.pokedexNumber > 0 ? b.pokedexNumber : 999999;
+          return numA - numB;
+        });
+      }
+
+      const rows = exportList.map(item => [
+        item.timestamp,
+        item.formattedNumber,
+        item.pokedexNumber,
+        item.nameZhHant,
+        item.nameEn,
+        item.nameJa,
+        (item.types || []).join('/'),
+        item.form,
+        item.category,
+        item.generation,
+        item.source === 'card_pokedex_line' ? '卡面圖鑑欄直讀' : '物種智慧匹配',
+        item.note
+      ]);
+
+      const csvLines = [
+        headers.map(csvEscape).join(','),
+        ...rows.map(row => row.map(csvEscape).join(','))
+      ];
+
+      // 加入 UTF-8 BOM (\uFEFF)，確保 Microsoft Excel 開啟繁體中文完全正常
+      const csvBlob = new Blob(['\uFEFF' + csvLines.join('\r\n')], {
+        type: 'text/csv;charset=utf-8;'
+      });
+
+      const now = new Date();
+      const fileStamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+      const downloadUrl = URL.createObjectURL(csvBlob);
+
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `寶可夢圖鑑編號辨識紀錄_${fileStamp}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(downloadUrl);
+
+      showToast(`已成功匯出 ${exportList.length} 筆圖鑑紀錄至 Excel CSV`, 'success');
+    }
+
+    function csvEscape(val) {
+      const str = String(val ?? '');
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+
+    /**
+     * =========================================================================
+     * 預覽燈箱、Toast 輕提示與安全跳脫工具函式
+     * =========================================================================
+     */
+    function openImageModal(src) {
+      if (!src) return;
+      document.getElementById('modal-large-img').src = src;
+      document.getElementById('image-preview-modal').classList.remove('hidden');
+    }
+
+    function closeImageModal() {
+      document.getElementById('image-preview-modal').classList.add('hidden');
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+
+      let styleClass = 'bg-slate-900 text-white border-slate-700';
+      let dotClass = 'bg-[#FACC15]';
+
+      if (type === 'success') {
+        styleClass = 'bg-slate-900 text-white border-emerald-500/60';
+        dotClass = 'bg-emerald-400';
+      } else if (type === 'error') {
+        styleClass = 'bg-slate-900 text-white border-red-500/60';
+        dotClass = 'bg-red-400';
+      }
+
+      toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-2xl border shadow-xl text-xs sm:text-sm font-extrabold transition-all duration-300 transform translate-y-2 opacity-0 ${styleClass}`;
+      toast.innerHTML = `
+        <span class="w-2.5 h-2.5 rounded-full flex-shrink-0 ${dotClass}"></span>
+        <span>${escapeHtml(message)}</span>
+      `;
+
+      container.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      });
+
+      setTimeout(() => {
+        toast.classList.add('translate-y-2', 'opacity-0');
+        setTimeout(() => {
+          if (toast.parentNode) {
+            toast.parentNode.removeChild(toast);
+          }
+        }, 300);
+      }, 3000);
+    }
+
+    function formatDateTime(date) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      const hh = String(date.getHours()).padStart(2, '0');
+      const mm = String(date.getMinutes()).padStart(2, '0');
+      const ss = String(date.getSeconds()).padStart(2, '0');
+      return `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text ?? '';
+      return div.innerHTML;
+    }
+
+    function escapeJsString(text) {
+      return String(text ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    }
+  </script>
+</body>
+</html>
